@@ -1,0 +1,21 @@
+# Local / personal Claude Code settings (not shared)
+.claude/settings.local.json
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Python (skill scripts, if any)
+__pycache__/
+*.py[cod]
+
+# Node (skill tooling, if any)
+node_modules/
