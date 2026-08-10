@@ -1,0 +1,45 @@
+# software-engineering-hub
+
+软件工程技能中心 —— 一个基于 Claude Code skill 机制的**分层技能库**,服务软件工程全流程(需求 / 设计 / 编码 / 测试 / 交付)各类参与者。
+
+## 是什么
+
+一个 **skill 路由中心 + 垂直技能库**。主 skill `se-hub` 作为路由入口,判断当前所处工程阶段与角色,渐进披露对应的垂直技能文档。所有调用统一从 hub 进,由 hub 分派。
+
+## 为什么这么设计
+
+**解决技能爆炸问题。** 若每个能力都注册成独立的一等公民 skill,技能列表会随能力增加线性膨胀——每条 description 都进上下文,既占 token 又让选路变难。
+
+本仓库采用 **hub 路由 + references 渐进披露**:
+
+- 只有 `se-hub` 一条注册进技能列表。无论下挂多少垂直能力,对外始终一个入口,列表不膨胀。
+- 垂直内容平时不在上下文,hub 判断出阶段后才 `Read` 进来,按需加载。一次会话通常只涉及一两个阶段,只付那部分的开销。
+
+## 目录结构
+
+```
+.claude/skills/se-hub/
+├── SKILL.md                              # 1级 · 路由入口(唯一注册技能)
+└── references/
+    ├── requirement/SKILL.md              # 2级 · 需求阶段
+    ├── design/SKILL.md                   # 2级 · 设计阶段
+    ├── coding/SKILL.md                   # 2级 · 编码阶段(子hub)
+    │   └── references/
+    │       ├── frontend/SKILL.md         # 3级 · 前端
+    │       ├── backend/SKILL.md          # 3级 · 后端
+    │       ├── devops/SKILL.md           # 3级 · DevOps
+    │       ├── refactor/SKILL.md         # 3级 · 重构
+    │       └── code-review/SKILL.md      # 3级 · 代码审查
+    ├── testing/SKILL.md                  # 2级 · 测试阶段
+    └── delivery/SKILL.md                 # 2级 · 交付阶段
+```
+
+## 设计原则
+
+- **级数由内容体积倒推**:阶段内容小就 2 级到底(如需求 / 交付);内容大、子域界限清楚的才拆 3 级(如编码)。不强求统一层级——混合结构是对的。
+- **嵌套 `references/` 里的 `SKILL.md` 不单独注册**:只有顶层 `se-hub` 是注册技能,子 `SKILL.md` 是 hub 内部 `Read` 的文档载体。
+- **3 级必须自己挣位置**:某级若不拆,父级 `SKILL.md` 会大到一次性加载不划算时才加层;否则是废层,徒增路由错误级联放大的风险。
+
+## 状态
+
+骨架已建,各层 `SKILL.md` 内容待填充。
