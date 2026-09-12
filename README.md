@@ -30,9 +30,13 @@
     │       ├── devops/SKILL.md           # 3级 · DevOps
     │       ├── refactor/SKILL.md         # 3级 · 重构
     │       └── code-review/SKILL.md      # 3级 · 代码审查
+    ├── integration/SKILL.md              # 2级 · 集成出包子hub(编码后、测试前)
+    │   └── gitlab-release-train/         # 3级 · GitLab 发布分支治理(SKILL.md + scripts/)
     ├── testing/SKILL.md                  # 2级 · 测试阶段
-    └── delivery/SKILL.md                 # 2级 · 交付阶段
+    └── delivery/.gitkeep                 # 2级 · 交付阶段(项目经理交付管理,待填充)
 ```
+
+> 阶段顺序对应工程流：需求 → 设计 → 编码 → **集成出包** → 测试 → 交付。集成出包阶段为子 hub 结构（与编码同构）：`integration/SKILL.md` 路由，下方 `gitlab-release-train/` 承载内网 GitLab 发布分支全流程（三分支模型、游离态扫描、闭环清理）。`gitlab-release-train` 原为独立技能，整体搬入，内容未改写。交付阶段定位为**项目经理视角的交付管理**（发布计划/上线协调/风险与回滚决策/发布清单/复盘），区别于集成出包的技术流程。
 
 ## 设计原则
 
@@ -42,4 +46,4 @@
 
 ## 状态
 
-骨架已建,各层 `SKILL.md` 内容待填充。
+骨架已建。集成出包阶段已落地首个垂直子技能 `gitlab-release-train`（GitLab 发布分支治理，编码后、测试前的出包班车流程）；其余阶段 `SKILL.md` 内容待填充。

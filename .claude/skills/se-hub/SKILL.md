@@ -1,6 +1,6 @@
 ---
 name: se-hub
-description: 软件工程方法论技能中心。当任务需要工程化的规范输出而非随手写代码时调用——如撰写需求文档/PRD/用户故事、做架构或技术方案设计、系统化重构、设计测试策略与用例、规划部署/CI-CD/发布流程。会路由到对应阶段的垂直技能。日常改 bug、写小函数不必调用。
+description: 软件工程方法论技能中心。当任务需要工程化的规范输出而非随手写代码时调用——如撰写需求文档/PRD/用户故事、做架构或技术方案设计、系统化重构、设计测试策略与用例、规划部署/CI-CD/发布流程;也覆盖 GitLab 发布分支治理——发版/切分支/release 分支/提测合并/出包/收口/清理分支/游离态分支扫描/发布班车。会路由到对应阶段的垂直技能。日常改 bug、写小函数不必调用。
 ---
 
 # 软件工程技能中心 (se-hub)
@@ -14,8 +14,9 @@ description: 软件工程方法论技能中心。当任务需要工程化的规�
 | 需求 | 撰写需求文档/PRD/用户故事/验收标准、梳理/拆解需求 | `references/requirement/SKILL.md` |
 | 设计 | 架构/方案/技术选型、接口设计/数据模型设计 | `references/design/SKILL.md` |
 | 编码 | 系统化重构、编码规范落地(前端/后端/DevOps/重构/code-review) | `references/coding/SKILL.md`(再下分一层) |
+| 集成出包 | **GitLab 发布分支治理**（发版/切分支/release 分支/提测合并/出包/收口/清理分支/游离态/班车）、集成合并策略/版本号/构建出包 | `references/integration/SKILL.md` |
 | 测试 | 测试策略/用例设计、单元/集成/e2e/边界/覆盖率规划 | `references/testing/SKILL.md` |
-| 交付 | 部署/发布/上线流程、运维/CI/CD/监控/回滚规划 | `references/delivery/SKILL.md` |
+| 交付 | 项目经理交付管理：发布计划/发布评审/上线协调、风险与回滚决策、发布清单/checklist、干系人通知与复盘 | `references/delivery/SKILL.md` |
 
 ## 路由规则
 
