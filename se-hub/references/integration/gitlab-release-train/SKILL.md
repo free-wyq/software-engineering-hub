@@ -243,6 +243,8 @@ python3 gitlab-scan-youli.py --release release/YY_MMDD --delete-merged --confirm
 
 所有脚本均为纯标准库(python3,无第三方依赖;`--out-xlsx` 需 openpyxl),跨环境通用:GitLab 地址用 `--host` 覆盖,认证读环境变量 `GITLAB_USER`+`GITLAB_PASSWORD`(账号密码,脚本自动走 OAuth/HTTP Basic),也可传 `--user/--password` 参数;仓库范围自动发现(扫 `MaaS` 组下 `default_branch=cxy-master` 的仓,别的 GitLab 实例换组名即可)。
 
+**全场景测试**:`tests/test_all_scenarios.py` 内置有状态 Mock GitLab,覆盖场景 A/C/D/E 全部主路径+防呆路径(无凭证/无 confirm/open MR 跳过/已存在幂等/收口校验),43 项断言;改脚本后跑 `python3 tests/test_all_scenarios.py` 回归。
+
 ### 报告输出铁律
 
 单表原样输出(项目|分支|描述|三布尔|commit|提交人|分类),禁止拆表/删列/改名;优先直接引用脚本 stdout。Excel 给人核对,stdout 给 agent 读。
