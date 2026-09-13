@@ -62,8 +62,13 @@ feat/fix 完整生命周期:**cxy-master 切出 → 合 cxy-dev 验证 → 合 r
 
 ## 三、操作流程
 
-### 1. 创建发布分支(切 release)
+### 1. 创建发布分支(切 release)—— 用 `gitlab-create-release.py` 两步式
 
+- **第一步(只读扫描)**:`python3 gitlab-create-release.py --release release/YY_MMDD --out-xlsx candidates.xlsx`
+  扫全部 cxy-master 仓,候选 = ①未收口且 ≤28 天的 开发中/待发/上线验证中 ②已在 cxy-dev 的 feat/fix(老的标「老」)。stdout 按仓分组输出清单 + 去重预览,Excel 落明细。
+- **⛔ 人工确认卡点**:候选清单必须给用户确认哪些仓的哪些分支进本次 release,脚本/agent 不得自作主张全建。
+- **第二步(写操作)**:`python3 gitlab-create-release.py --release release/YY_MMDD --branches "repoA:feat/x,feat/y;repoB:fix/z" --confirm`
+  按仓去重(一仓一 release),基于该仓 `cxy-master` 创建;必须 `--confirm`;已存在跳过(幂等);结果汇总仅 stdout。
 - 各参与仓从 `cxy-master` 切 `release/YY_MMDD`(POST `/projects/:id/repository/branches?branch=release/YY_MMDD&ref=cxy-master`)。
 - 用户提出分析分支更新时:跑 `python3 gitlab-scan-youli.py --release release/YY_MMDD` 得游离态分类,「待发」即候选发布内容。
 
@@ -105,6 +110,14 @@ feat/fix 完整生命周期:**cxy-master 切出 → 合 cxy-dev 验证 → 合 r
   - feat/fix 按**三站标准**判定:①进过 cxy-dev ②进过当前 release(不填 `--release` 则跳过此站)③已回流 cxy-master。三站全经过 → ✅可删;只到 master 没走 dev → ⚠️异常保留。
   - release 分支:已回流 cxy-master(compare=0)→ ✅可删;未回流 → ❌未收口保留。
 - **用法**:默认只读出报告;`--delete --confirm` 才执行删除(删除走「空 body=成功 + GET 404 复查」,自动跳过有 open MR 的分支)。
+
+### 工具 3:发车创建 release — `gitlab-create-release.py`
+
+- **用途**:发车第一步「切 release 分支」。扫描候选 → 人工确认 → 按仓去重创建。
+- **两步式**:
+  1. 只扫描(不带 `--branches`):输出候选清单(stdout 按仓分组 + `--out-xlsx` Excel 明细)。
+  2. 创建(`--branches "repo:br1,br2;..." --confirm`):按仓去重,每仓基于 `cxy-master` 建 1 个 `release/xxx`;已存在跳过(幂等);结果汇总仅 stdout。
+- **防呆**:写操作必须 `--confirm`;候选必须经用户确认后才组装 `--branches`。
 
 ### 报告输出铁律
 
