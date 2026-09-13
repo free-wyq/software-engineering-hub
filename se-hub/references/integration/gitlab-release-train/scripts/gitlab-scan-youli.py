@@ -13,7 +13,7 @@ gitlab-scan-youli.py — 游离态分支治理扫描
 用法:
   # 账号密码(由 agent 从记忆注入,不写进本文件)
   GITLAB_USER=alice GITLAB_PASSWORD=**** python3 gitlab-scan-youli.py --release release/26_0811
-  python3 gitlab-scan-youli.py --release release/26_0811 --stale-days 28 --out report.md
+  python3 gitlab-scan-youli.py --release release/26_0811 --stale-days 28 --out-xlsx report.xlsx
   python3 gitlab-scan-youli.py      # 不填 release → 退化为只看 master/dev 两层(省略 release 列)
   python3 gitlab-scan-youli.py --project llm-workflow-service --release release/26_0811  # 调试用,只扫一个仓
 
@@ -22,7 +22,7 @@ gitlab-scan-youli.py — 游离态分支治理扫描
   --stale-days     废弃阈值天数(默认 28,双周发 × 2 周期);超过算"老"
   --host           GitLab 地址(默认 http://172.16.168.245:28080)
   --project        只扫某个项目(path,调试用),不填扫全部
-  --out            输出 markdown 文件(不填只打印 stdout)
+  --out-xlsx       输出 Excel 报告路径(必填,需 openpyxl);stdout 另打精简摘要
   --verbose        打印每个分支的判定过程到 stderr
 
 前提(误判风险):全链路必须 merge,不能有 squash/cherry-pick。
@@ -40,6 +40,11 @@ from datetime import datetime, timezone
 from collections import Counter
 
 import gitlab_auth  # 认证解析(账号密码)
+
+# Windows 控制台默认 GBK,打不出 🔴/⚠️ emoji,统一转 UTF-8
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 DEFAULT_HOST = "http://172.16.168.245:28080"
 
@@ -319,45 +324,35 @@ def scan(gl, release, stale_days, project_filter, verbose=False):
 
 # ─────────────────────────── 报告渲染 ───────────────────────────
 
-def render(rows, collected, n_repos, release, stale_days, errors):
+def render_summary(rows, collected, n_repos, release, stale_days, errors):
+    """stdout 精简摘要:统计行 + 待发/异常类清单(agent 直接读,不用解析 Excel)。"""
     stats = Counter(r["cat"] for r in rows)
     total_branches = len(rows) + collected
-    show_release = bool(release)
 
     L = []
-    L.append("# 游离态分支治理报告")
-    L.append("")
-    L.append(f"扫描时间:{datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    L.append(f"当前上线分支:{release or '(未指定,release 列省略)'} | "
-             f"废弃阈值:{stale_days}天 | cxy-master 仓:{n_repos}")
-    L.append(f"feat/fix 分支总数:{total_branches} | "
-             f"已收口(master,不列入):{collected} | 游离态:{len(rows)}")
-    L.append("")
-
-    header = ["项目", "分支", "描述", "在 master?", "在 release?", "在 dev?",
-              "最新 commit", "提交人", "分类"]
-    if not show_release:
-        header.remove("在 release?")
-    L.append("| " + " | ".join(header) + " |")
-    L.append("|" + "|".join(["---"] * len(header)) + "|")
-
-    for r in rows:
-        commit_cell = f"{r['date']} {r['sha']}" if r['sha'] else r['date']
-        line = [r["project"], r["branch"], r["desc"] or "-", r["in_master"]]
-        if show_release:
-            line.append(r["in_release"])
-        line += [r["in_dev"], commit_cell, r["author"], r["cat"]]
-        L.append("| " + " | ".join(line) + " |")
-
-    L.append("")
+    L.append("# 游离态分支扫描摘要")
+    L.append(f"扫描时间:{datetime.now().strftime('%Y-%m-%d %H:%M')} | "
+             f"release={release or '(未指定)'} | 阈值={stale_days}天 | 仓:{n_repos}")
+    L.append(f"feat/fix 总数:{total_branches} | 已收口(不列入):{collected} | 游离态:{len(rows)}")
     stat_str = " | ".join(f"{k} {stats.get(k, 0)}" for k in STAT_ORDER if stats.get(k, 0))
-    L.append(f"**统计**:{stat_str or '无游离态分支'}")
-    L.append("")
-    L.append("**排序**:🔴 废弃/僵尸 → ⚠️ 异常/release卡住 → 上线验证中 → 待发 → 开发中")
+    L.append(f"统计:{stat_str or '无游离态分支'}")
+
+    # 重点清单:该处理的(红/黄) + 待发(本次上线候选)
+    focus = [r for r in rows if r["cat"] in
+             ("🔴 废弃候选", "🔴 僵尸", "⚠️ 异常", "⚠️ release 卡住", "待发")]
+    if focus:
+        L.append("")
+        L.append("## 重点关注(废弃/僵尸/异常/release卡住/待发)")
+        L.append("| 项目 | 分支 | 分类 | 提交人 | 最新 commit |")
+        L.append("|---|---|---|---|---|")
+        for r in focus:
+            commit_cell = f"{r['date']} {r['sha']}" if r['sha'] else r['date']
+            L.append(f"| {r['project']} | {r['branch']} | {r['cat']} "
+                     f"| {r['author']} | {commit_cell} |")
 
     if errors:
         L.append("")
-        L.append(f"⚠️ 扫描中有 {len(errors)} 个错误(已跳过,不影响其余判定):")
+        L.append(f"⚠️ 扫描错误 {len(errors)} 个(已跳过):")
         for e in errors:
             L.append(f"- {e}")
 
@@ -372,7 +367,7 @@ def render_xlsx(path, rows, collected, n_repos, release, stale_days, errors):
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
-    headers = ["项目", "分支", "描述", "在 master?", "在 release?", "在 dev?",
+    headers = ["项目", "分支", "描述", "在 dev?", "在 master?", "在 release?",
                "最新 commit 时间", "commit", "提交人", "分类"]
     if not release:
         headers.remove("在 release?")
@@ -406,10 +401,10 @@ def render_xlsx(path, rows, collected, n_repos, release, stale_days, errors):
 
     for r in rows:
         commit_cell = f"{r['date']} {r['sha']}" if r['sha'] else r['date']
-        line = [r["project"], r["branch"], r["desc"] or "-", r["in_master"]]
+        line = [r["project"], r["branch"], r["desc"] or "-", r["in_dev"]]
         if release:
             line.append(r["in_release"])
-        line += [r["in_dev"], commit_cell, r["sha"], r["author"], r["cat"]]
+        line += [r["in_master"], commit_cell, r["sha"], r["author"], r["cat"]]
         ws.append(line)
         row = ws.max_row
         fill = cat_fill.get(r["cat"])
@@ -488,8 +483,8 @@ def main():
                     help="废弃阈值天数(默认28,双周发×2周期);超过算老")
     ap.add_argument("--host", default=DEFAULT_HOST, help="GitLab 地址")
     ap.add_argument("--project", help="只扫某个项目 path(调试用)")
-    ap.add_argument("--out", help="输出 markdown 文件(不填只 stdout)")
-    ap.add_argument("--out-xlsx", help="同时输出 Excel 报告(需 openpyxl)")
+    ap.add_argument("--out-xlsx", required=True,
+                    help="输出 Excel 报告路径(需 openpyxl);stdout 另打精简摘要")
     ap.add_argument("--list-merged", action="store_true",
                     help="dry-run:列出已收口(merged=true)分支清单,便于人工确认后清理")
     ap.add_argument("--delete-merged", action="store_true",
@@ -554,18 +549,12 @@ def main():
             print(f"  失败:{r['project']}/{r['branch']} → {d}", file=sys.stderr)
         return
 
-    report = render(rows, collected, n_repos, args.release, args.stale_days, errors)
-
-    if args.out_xlsx:
-        render_xlsx(args.out_xlsx, rows, collected, n_repos,
-                    args.release, args.stale_days, errors)
-        print(f"✅ Excel 已写入:{args.out_xlsx}", file=sys.stderr)
-    elif args.out:
-        with open(args.out, "w", encoding="utf-8") as f:
-            f.write(report)
-        print(f"✅ markdown 已写入:{args.out}", file=sys.stderr)
-    else:
-        print(report)
+    render_xlsx(args.out_xlsx, rows, collected, n_repos,
+                args.release, args.stale_days, errors)
+    print(f"✅ Excel 已写入:{args.out_xlsx}", file=sys.stderr)
+    print()
+    print(render_summary(rows, collected, n_repos,
+                         args.release, args.stale_days, errors))
 
 
 if __name__ == "__main__":
