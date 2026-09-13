@@ -81,8 +81,13 @@ feat/fix 完整生命周期:**cxy-master 切出 → 合 cxy-dev 验证 → 合 r
 
 对每个 release 仓比对 `compare?from=cxy-dev&to=release/YY_MMDD`:差异中**非 merge commit 数必须为 0**。有直接 commit → 报告用户定夺(0909 案例用户可豁免,但必须先暴露)。
 
-### 4. 收口(release → cxy-master)
+### 4. 收口(release → cxy-master)—— 用 `gitlab-close-release.py` 两步式
 
+- **第一步(只读扫描)**:`python3 gitlab-close-release.py --release release/YY_MMDD --out-xlsx close-list.xlsx`
+  扫全部参与仓:release 存在? ahead 多少(compare master→release)? 已有 open MR? → stdout 清单(ahead=0 已收口跳过)。
+- **⛔ 人工授权卡点**:accept 合并必须用户确认清单后授权,不得自动执行。
+- **第二步(写操作)**:`python3 gitlab-close-release.py --release release/YY_MMDD --confirm`
+  对 ahead>0 的仓逐个:①无 open MR 则建 MR(source=release, target=cxy-master, squash=false)→ ②accept(405 是状态机窗口,回查 state 再判)→ ③回读校验 compare(master→release)=0 才算收口干净。结果汇总仅 stdout。
 - release 上线后,建 MR `release/YY_MMDD → cxy-master`(compare ahead=0 的仓跳过,broken_status 无意义)。
 - 用户授权后批量 accept,回读并校验 `compare?from=cxy-master&to=release/YY_MMDD` = **0 commits** 即收口干净。
 
@@ -118,6 +123,14 @@ feat/fix 完整生命周期:**cxy-master 切出 → 合 cxy-dev 验证 → 合 r
   1. 只扫描(不带 `--branches`):输出候选清单(stdout 按仓分组 + `--out-xlsx` Excel 明细)。
   2. 创建(`--branches "repo:br1,br2;..." --confirm`):按仓去重,每仓基于 `cxy-master` 建 1 个 `release/xxx`;已存在跳过(幂等);结果汇总仅 stdout。
 - **防呆**:写操作必须 `--confirm`;候选必须经用户确认后才组装 `--branches`。
+
+### 工具 4:收口合并 — `gitlab-close-release.py`
+
+- **用途**:release 上线后合并回 cxy-master(收口)。
+- **两步式**:
+  1. 只扫描(不带 `--confirm`):出收口清单(stdout + `--out-xlsx` Excel),每仓 ahead/open MR/状态。
+  2. 执行(`--confirm`):对 ahead>0 的仓建 MR(squash=false)→ accept(405 回查 state)→ 回读校验 compare=0;结果汇总仅 stdout。
+- **防呆**:accept 必须人工授权(`--confirm` 卡点);open MR 实时查不信快照;校验不过记失败。
 
 ### 报告输出铁律
 
