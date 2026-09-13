@@ -68,17 +68,17 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    A["A 发车<br/>create-release<br/>切 release/xxx"] --> B["B 合入发布<br/>feat/fix → release"]
+    A["A 创建发布分支<br/>create-release<br/>切 release/xxx"] --> B["B 合入发布<br/>feat/fix → release"]
     B --> V["上线验证"]
     V --> C["C 收口<br/>close-release<br/>release → cxy-master"]
     C --> D["D 清理<br/>report-closed<br/>删已收口分支"]
-    S["gitlab-scan-youli<br/>游离态分析(辅助)"] -.-> A
+    S["E 游离态分析<br/>scan-youli<br/>(日常治理,辅助)"] -.-> A
     S -.-> D
 ```
 
 按场景组织:每个场景 = **流程模型**(长什么样、卡点在哪)→ **执行脚本**(怎么跑)。
 
-### 场景 A:发车(创建 release 分支)
+### 场景 A:创建发布分支(release)
 
 **流程模型**:
 
@@ -197,15 +197,49 @@ python3 gitlab-report-closed.py --release release/YY_MMDD --delete --confirm
 
 范围约束:非本流程仓(skillhub 走 main 系、callcenter/enterprise/紫菁元不走 cxy 流程)**不纳入默认范围**,列出单独请示。
 
+### 场景 E:游离态分支分析(日常治理,只读)
+
+**用途**:发版前分析「哪些分支能上本次发布」+ 日常治理「哪些分支该清」。只读,不删不合。
+
+**流程模型**:
+
+```
+扫全部 cxy-master 仓的 feat/fix 分支
+    ↓
+逐分支三布尔判定(在 master?/在 release?/在 dev?)+ commit 时间新旧
+    ↓
+分类:收口(不列入)/上线验证中/待发/开发中/僵尸/废弃候选/异常/release卡住
+    ↓
+输出报告(stdout 精简摘要 + Excel 全量明细)
+    ↓
+按分类分流处置:
+    待发/上线验证中 → 场景 A 的发布候选
+    废弃候选/僵尸   → 场景 D 的清理对象(须三站标准复核)
+    异常/release卡住 → 报告用户定夺,不自动处理
+```
+
+**执行脚本** — `gitlab-scan-youli.py`:
+
+```bash
+# 报告(只读):stdout 摘要 + Excel 明细
+python3 gitlab-scan-youli.py --release release/YY_MMDD --out-xlsx report.xlsx
+# 辅助:列出已收口(merged=true)分支清单,供场景 D 清理前核对
+python3 gitlab-scan-youli.py --release release/YY_MMDD --list-merged
+# 确认后执行删除(不可逆,自动跳过有 open MR 的分支)
+python3 gitlab-scan-youli.py --release release/YY_MMDD --delete-merged --confirm-delete
+```
+
+**误判前提**:全链路必须 merge,不能 squash/cherry-pick(否则 SHA 对不上,已收口误判成游离)。
+
 ## 四、工具总览(scripts/ 目录,随技能分发)
 
 | 场景 | 脚本 | 两步式开关 |
 |---|---|---|
-| A 发车切 release | `gitlab-create-release.py` | 扫描(不带 `--branches`)→ 创建(`--branches … --confirm`) |
+| A 创建 release 分支 | `gitlab-create-release.py` | 扫描(不带 `--branches`)→ 创建(`--branches … --confirm`) |
 | B 合入发布 | 暂无脚本,agent 按 API 执行 | — |
 | C 收口合并 | `gitlab-close-release.py` | 扫描(不带 `--confirm`)→ 执行(`--confirm`) |
 | D 清理分支 | `gitlab-report-closed.py` | 报告(默认只读)→ 删除(`--delete --confirm`) |
-| 辅助:游离态分析 | `gitlab-scan-youli.py` | 报告(只读);`--list-merged`/`--delete-merged --confirm-delete` 清理已收口 |
+| E 游离态分析 | `gitlab-scan-youli.py` | 报告(只读);`--list-merged` 出清单 → `--delete-merged --confirm-delete` 清理已收口 |
 
 所有脚本均为纯标准库(python3,无第三方依赖;`--out-xlsx` 需 openpyxl),跨环境通用:GitLab 地址用 `--host` 覆盖,认证读环境变量 `GITLAB_USER`+`GITLAB_PASSWORD`(账号密码,脚本自动走 OAuth/HTTP Basic),也可传 `--user/--password` 参数;仓库范围自动发现(扫 `MaaS` 组下 `default_branch=cxy-master` 的仓,别的 GitLab 实例换组名即可)。
 

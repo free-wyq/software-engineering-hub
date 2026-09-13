@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-gitlab-create-release.py — release train 发车:创建 release/xxx 分支
+gitlab-create-release.py — 创建发布分支:创建 release/xxx
 
 两步式(写操作必须人工确认卡点):
   第一步(只读):不带 --branches → 扫描候选分支,输出清单(stdout 按仓分组 + Excel 明细)。
@@ -151,7 +151,7 @@ ACTIVE_CATS = ("开发中", "待发", "上线验证中")
 
 
 def classify(in_master, in_dev, days_old, stale_days):
-    """发车视角的简化分类(不看 release 层):收口/活跃/老。"""
+    """发布视角的简化分类(不看 release 层):收口/活跃/老。"""
     if in_master:
         return "收口"
     old = days_old > stale_days
@@ -226,7 +226,7 @@ def scan_candidates(gl, stale_days, project_filter, verbose=False):
 def render_candidates(rows, n_repos, release, stale_days, errors):
     """stdout 候选清单:按仓分组 + 去重预览(agent 直接读,转给用户确认)。"""
     L = []
-    L.append(f"# release 发车候选清单(release={release})")
+    L.append(f"# release 候选分支清单(release={release})")
     L.append(f"扫描时间:{datetime.now().strftime('%Y-%m-%d %H:%M')} | "
              f"仓:{n_repos} | 活跃阈值:{stale_days}天 | 候选分支:{len(rows)} 条")
     L.append("")
@@ -267,7 +267,7 @@ def render_candidates_xlsx(path, rows, errors):
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "发车候选"
+    ws.title = "发布候选"
     hdr_fill = PatternFill("solid", fgColor="4472C4")
     hdr_font = Font(bold=True, color="FFFFFF")
     thin = Side(style="thin", color="D9D9D9")
@@ -374,7 +374,7 @@ def print_result_summary(created, skipped, failed, release):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="release train 发车:扫描候选 → 人工确认 → 按仓去重创建 release/xxx")
+        description="创建发布分支:扫描候选 → 人工确认 → 按仓去重创建 release/xxx")
     ap.add_argument("--release", required=True,
                     help="release 分支名,如 release/26_0915")
     ap.add_argument("--branches",
